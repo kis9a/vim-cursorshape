@@ -1,0 +1,324 @@
+*cursorshape.txt*  Control terminal cursor shape in Vim/Neovim
+
+Author:  kis9a
+License: MIT
+Version: 1.0.0
+
+==============================================================================
+CONTENTS                                                  *cursorshape-contents*
+
+1. Introduction .................... |cursorshape-intro|
+2. Requirements .................... |cursorshape-requirements|
+3. Installation .................... |cursorshape-installation|
+4. Usage ........................... |cursorshape-usage|
+    Commands ....................... |cursorshape-commands|
+    Functions ...................... |cursorshape-functions|
+5. Configuration ................... |cursorshape-configuration|
+    Options ........................ |cursorshape-options|
+6. Backend Details ................. |cursorshape-backends|
+7. Compatibility ................... |cursorshape-compatibility|
+8. Troubleshooting ................. |cursorshape-troubleshooting|
+9. Changelog ....................... |cursorshape-changelog|
+
+==============================================================================
+1. INTRODUCTION                                              *cursorshape-intro*
+
+cursorshape is a Vim/Neovim plugin that controls terminal cursor shape
+based on editing mode (Normal/Insert/Replace).
+
+Features:
+- Works on both Vim and Neovim
+- Mode-specific cursor shapes (block/bar/underline, blinking/steady)
+- Safe fallback for unsupported environments
+- Restore policy on exit
+
+Specification references:
+- Vim: |termcap|, |term.txt|, |'guicursor'|, |t_SI|, |t_EI|, |t_SR|
+- Neovim: |'guicursor'|, |tui-cursor-shape|
+
+==============================================================================
+2. REQUIREMENTS                                      *cursorshape-requirements*
+
+- Vim 8.0+ or Neovim 0.5+
+- Terminal emulator that supports cursor shape escape sequences (DECSCUSR)
+
+Supported terminals:
+- iTerm2, Kitty, Alacritty, WezTerm
+- XTerm, Konsole
+- GNOME Terminal (newer versions with libvte)
+- tmux (with g:cursorshape_allow_tmux=1)
+
+==============================================================================
+3. INSTALLATION                                      *cursorshape-installation*
+
+Using vim-plug:
+>
+    Plug 'kis9a/vim-cursorshape'
+<
+
+Using Vundle:
+>
+    Plugin 'kis9a/vim-cursorshape'
+<
+
+Using dein.vim:
+>
+    call dein#add('kis9a/vim-cursorshape')
+<
+
+Using other plugin managers: Add this repository to your plugin configuration.
+
+==============================================================================
+4. USAGE                                                    *cursorshape-usage*
+
+COMMANDS                                                 *cursorshape-commands*
+
+:CursorShapeEnable                                          *:CursorShapeEnable*
+    Enable cursor shape control.
+
+:CursorShapeDisable                                        *:CursorShapeDisable*
+    Disable cursor shape control.
+    Note: Vim termcap backend cannot be fully disabled (requires restart).
+
+:CursorShapeToggle                                          *:CursorShapeToggle*
+    Toggle cursor shape control on/off.
+
+:CursorShapeInfo                                              *:CursorShapeInfo*
+    Display current configuration and environment information.
+
+:CursorShapeTest                                              *:CursorShapeTest*
+    Test cursor shape changes (displays guidance).
+
+FUNCTIONS                                               *cursorshape-functions*
+
+cursorshape#enable()                                    *cursorshape#enable()*
+    Enable cursor shape control.
+    Public API function. Can be called from user scripts.
+
+cursorshape#disable()                                  *cursorshape#disable()*
+    Disable cursor shape control.
+
+cursorshape#toggle()                                    *cursorshape#toggle()*
+    Toggle cursor shape control.
+
+cursorshape#info()                                        *cursorshape#info()*
+    Returns a dictionary with current settings and environment info.
+    Return value: dict with keys: enabled, backend, env, cap, modes, etc.
+
+cursorshape#apply()                                      *cursorshape#apply()*
+    Re-apply current cursor shape settings.
+
+cursorshape#deps#env#reset_cache()          *cursorshape#deps#env#reset_cache()*
+    Reset environment cache. Useful for forcing a refresh after environment
+    changes (e.g., tmux attach/detach). Called automatically by :CursorShapeInfo.
+
+    Example:
+>
+    " Reset cache and get fresh environment info
+    call cursorshape#deps#env#reset_cache()
+    :CursorShapeInfo
+<
+
+cursorshape#deps#env#detect({opts})         *cursorshape#deps#env#detect()*
+    Detect environment information with optional force refresh.
+
+    Parameters:
+        {opts} - Optional dict: {'force': 1} to bypass cache
+
+    Returns:
+        Dictionary with environment information (editor, version, os, tmux, etc.)
+
+    Example:
+>
+    " Get cached environment
+    let env = cursorshape#deps#env#detect()
+
+    " Force refresh environment detection
+    let env = cursorshape#deps#env#detect({'force': 1})
+<
+
+==============================================================================
+5. CONFIGURATION                                    *cursorshape-configuration*
+
+OPTIONS                                                   *cursorshape-options*
+
+*g:cursorshape_enabled*
+    Enable/disable cursor shape control.
+    Default: 1 (enabled)
+>
+    let g:cursorshape_enabled = 1
+<
+
+*g:cursorshape_backend*
+    Specify backend explicitly or use 'auto'.
+    Values: 'auto' | 'vim_termcap' | 'nvim_guicursor' | 'none'
+    Default: 'auto'
+>
+    let g:cursorshape_backend = 'auto'
+<
+
+*g:cursorshape_modes*
+    Cursor shapes for each mode.
+    Default:
+>
+    let g:cursorshape_modes = {
+      \ 'normal': 'block_blink',
+      \ 'visual': 'block_blink',
+      \ 'cmdline': 'block_blink',
+      \ 'insert': 'bar_blink',
+      \ 'replace': 'underline_blink',
+      \ }
+<
+    Available modes:
+    - 'normal': Normal mode (n)
+    - 'visual': Visual mode (v)
+    - 'cmdline': Command-line mode (c)
+    - 'insert': Insert mode (i, ci)
+    - 'replace': Replace mode (r, cr)
+    - 'operator': Operator-pending mode (o) [optional]
+    - 'visual_exclusive': Visual exclusive mode (ve) [optional]
+
+    Available shapes:
+    - 'block_blink', 'block_steady'
+    - 'bar_blink', 'bar_steady'
+    - 'underline_blink', 'underline_steady'
+
+    Note: In Neovim, individual mode settings are intelligently merged with
+    your existing guicursor configuration. Only the modes specified in
+    g:cursorshape_modes are updated, preserving any custom settings for other
+    modes (such as sm, o, ve). This ensures your existing guicursor
+    configuration is respected.
+
+*g:cursorshape_restore*
+    Cursor restore policy on exit.
+    Values: 'default' | 'startup' | 'none'
+    Default: 'default'
+>
+    let g:cursorshape_restore = 'default'
+<
+    - 'default': Restore to block cursor on exit
+    - 'startup': Try to restore to startup shape (limited support)
+    - 'none': Don't restore (keep current shape)
+
+*g:cursorshape_allow_tmux*
+    Allow cursor shape control under tmux/screen.
+    Default: 0 (disabled for safety)
+>
+    let g:cursorshape_allow_tmux = 0
+<
+
+*g:cursorshape_debug*
+    Enable debug mode for testing and advanced operations.
+    Default: 0
+>
+    let g:cursorshape_debug = 0
+<
+    When debug mode is enabled:
+    - Internal termcap reset() function becomes accessible
+    - Additional testing capabilities are enabled
+
+    Warning: Debug mode is intended for testing only. Internal functions
+    may not work as expected for normal use. Use with caution.
+
+==============================================================================
+6. BACKEND DETAILS                                       *cursorshape-backends*
+
+AUTO SELECTION                                      *cursorshape-backend-auto*
+When g:cursorshape_backend is 'auto', the plugin selects the best backend:
+1. If under tmux/screen and allow_tmux=0: use 'none'
+2. If Neovim and 'guicursor' available: use 'nvim_guicursor'
+3. If Vim and 't_SI'/'t_EI' available: use 'vim_termcap'
+4. Otherwise: use 'none'
+
+NEOVIM GUICURSOR                              *cursorshape-backend-guicursor*
+Uses Neovim's 'guicursor' option for cursor control.
+References: |'guicursor'|, |tui-cursor-shape|
+- Applies to both GUI and TUI
+- Uses terminfo 'Ss' and 'Se' capabilities
+- Supports startup restore
+- Intelligent merging: preserves user's existing guicursor settings
+- Only updates modes specified in g:cursorshape_modes
+- User settings for other modes (sm, o, ve, etc.) are preserved
+
+VIM TERMCAP                                      *cursorshape-backend-termcap*
+Uses Vim's termcap options (t_SI, t_EI, t_SR, t_te).
+References: |t_SI|, |t_EI|, |t_SR|, |t_te|
+- Requires both t_SI and t_EI to be effective
+- Appends escape sequences (does not overwrite)
+- Limited restore support (cannot query startup shape)
+
+NONE                                                *cursorshape-backend-none*
+No cursor shape control (safe fallback).
+Used when:
+- Terminal doesn't support cursor shape sequences
+- Under tmux/screen with allow_tmux=0
+- User explicitly sets backend='none'
+
+==============================================================================
+7. COMPATIBILITY                                    *cursorshape-compatibility*
+
+VIM/NEOVIM DIFFERENCES                          *cursorshape-compat-vim-nvim*
+- Vim: Uses termcap options (t_SI, t_EI, t_SR)
+- Neovim: Uses 'guicursor' option (t_* options ignored)
+
+TMUX/SCREEN                                        *cursorshape-compat-tmux*
+By default, cursor shape control is disabled under tmux/screen for safety.
+To enable: set g:cursorshape_allow_tmux=1
+
+TERMINAL SUPPORT                                *cursorshape-compat-terminal*
+Most modern terminal emulators support DECSCUSR escape sequences.
+Unsupported terminals will gracefully fallback to 'none' backend.
+
+==============================================================================
+8. TROUBLESHOOTING                              *cursorshape-troubleshooting*
+
+Q: Cursor shape doesn't change
+A: 1. Check :CursorShapeInfo to see backend and capabilities
+   2. Ensure terminal supports cursor shape sequences
+   3. Try different terminal emulator
+   4. Check if under tmux (set g:cursorshape_allow_tmux=1)
+
+Q: Cursor shape not restored on exit
+A: This is a known limitation. Set g:cursorshape_restore='default' to
+   restore to block cursor, or 'none' to keep current shape.
+
+Q: Plugin doesn't work in tmux
+A: Set g:cursorshape_allow_tmux=1 (disabled by default for safety)
+
+Q: Error messages on startup
+A: Check :messages for details. Use :CursorShapeInfo to diagnose.
+
+Q: I disabled the plugin but cursor shapes still change
+A: Vim's termcap backend (t_SI/t_EI/t_SR) cannot be fully reset without
+   restarting Vim. This is a Vim limitation, not a plugin bug.
+
+   Technical details:
+   - The plugin appends escape sequences to termcap options
+   - These options cannot be safely reverted once set
+   - :CursorShapeDisable only prevents further changes
+
+   Workarounds:
+   1. Restart Vim to clear the settings
+   2. Set g:cursorshape_enabled=0 in vimrc to prevent auto-enable
+   3. Use Neovim which supports full disable (guicursor can be reset)
+
+   Use :CursorShapeInfo to check your backend.
+
+Q: Can I use the reset() function to disable the plugin?
+A: No. The cursorshape#internal#termcap#reset() function is for testing
+   only and requires debug mode (g:cursorshape_debug=1). It only resets
+   an internal flag and does not clear termcap options. Use
+   :CursorShapeDisable instead (with the limitations noted above).
+
+==============================================================================
+9. CHANGELOG                                            *cursorshape-changelog*
+
+1.0.0 (2026-01-25)
+    - Initial release
+    - Vim/Neovim support
+    - Mode-specific cursor shapes
+    - Auto backend selection
+    - Safe fallback
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:

@@ -1,0 +1,31 @@
+# Swap files
+[._]*.s[a-v][a-z]
+!*.svg
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# Session files
+Session.vim
+Sessionx.vim
+
+# Temporary files
+.netrwhist
+*~
+
+# Auto-generated tag files
+tags
+
+# Persistent undo files
+[._]*.un~
+
+# Additional ignores
+vim-vimlint/
+vim-vimlparser/
+vim-themis/
+tmp/
+.deps/
+.mcp.json
+CLAUDE.md
+docs/
